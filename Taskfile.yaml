@@ -1,0 +1,232 @@
+version: '3'
+
+env:
+  GOOS: # windows or linux
+    sh: go env GOOS
+  GOARCH: # amd64, arm64, etc.
+    sh: go env GOARCH
+  PROJECT_NAME: # project name from go.mod
+    sh: powershell -Command "(Get-Content go.mod | Select-String '^module' | Select-Object -First 1) -replace '.*/', ''"
+  EXE: .exe
+  DATE: # date string
+    sh: powershell -Command "Get-Date -Format s"
+
+tasks:
+
+  default:
+    desc: Display task menu (and update task itself)
+    cmds:
+      - go install github.com/go-task/task/v3/cmd/task@latest
+      - 'echo "Available tasks for mypdf2txt:"'
+      - task --list-all
+
+  # ==================== Build Tasks ====================
+
+  build-extractor:
+    desc: Build C# PdfTextExtractor.exe (installs .NET SDK if needed)
+    dir: tools
+    run: once
+    cmds:
+      - echo "Building PdfTextExtractor.exe (this may take time on first run)..."
+      - powershell.exe -ExecutionPolicy Bypass -File build.ps1
+
+  build-go:
+    desc: Build Go library
+    deps: [build-extractor]
+    cmds:
+      - echo "Building Go library..."
+      - go build ./p2t
+
+  build-example:
+    desc: Build example CLI application
+    deps: [build-extractor]
+    cmds:
+      - echo "Building example application..."
+      - go build -o bin/example{{.EXE}} ./cmd/example
+      - echo "Built bin/example{{.EXE}}"
+
+  build:
+    desc: Build everything (C# extractor + Go library + example)
+    deps: [build-extractor, build-go, build-example]
+    cmds:
+      - echo "Build complete!"
+      - 'echo "C# Extractor: bin/PdfTextExtractor.exe"'
+      - 'echo "Go Example: bin/example{{.EXE}}"'
+
+  # ==================== Test Tasks ====================
+
+  test:
+    desc: Run all tests
+    deps: [build-extractor]
+    cmds:
+      - echo "Running tests..."
+      - go test ./p2t -v
+
+  test-quick:
+    desc: Run tests without verbose output
+    deps: [build-extractor]
+    cmds:
+      - go test ./p2t
+
+  test-coverage:
+    desc: Run tests with coverage report
+    deps: [build-extractor]
+    cmds:
+      - echo "Running tests with coverage..."
+      - go test ./p2t -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "Coverage report: coverage.html"'
+
+  # ==================== Clean Tasks ====================
+
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - echo "Cleaning build artifacts..."
+      - cmd: powershell -Command "Remove-Item -Path bin -Recurse -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - cmd: powershell -Command "Remove-Item -Path tools/PdfTextExtractor/bin -Recurse -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - cmd: powershell -Command "Remove-Item -Path tools/PdfTextExtractor/obj -Recurse -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - cmd: powershell -Command "Remove-Item -Path coverage.out,coverage.html -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - echo "Clean complete!"
+
+  clean-all:
+    desc: Clean everything including test temp files
+    deps: [clean]
+    cmds:
+      - echo "Cleaning temp files..."
+      - cmd: 'powershell -Command "Remove-Item -Path $env:TEMP\pdf2txt_* -Recurse -Force -ErrorAction SilentlyContinue"'
+        ignore_error: true
+      - cmd: 'powershell -Command "Remove-Item -Path $env:TEMP\pdf2png -Recurse -Force -ErrorAction SilentlyContinue"'
+        ignore_error: true
+      - echo "Deep clean complete!"
+
+  # ==================== Development Tasks ====================
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - echo "Formatting Go code..."
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - echo "Running go vet..."
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint (install first if needed)
+    cmds:
+      - echo "Running linter..."
+      - golangci-lint run ./...
+
+  tidy:
+    desc: Tidy go.mod
+    cmds:
+      - echo "Tidying go.mod..."
+      - go mod tidy
+
+  # ==================== Run Tasks ====================
+
+  run:
+    desc: Run example with test PDF (requires PDF path as argument)
+    deps: [build-example]
+    cmds:
+      - 'echo "Usage: task run -- <pdf-file>"'
+      - 'echo "Example: task run -- testFiles/test1.pdf"'
+      - cmd: bin/example{{.EXE}} {{.CLI_ARGS}}
+        ignore_error: true
+
+  # ==================== Documentation Tasks ====================
+
+  godoc:
+    desc: Launch godoc viewer and open browser
+    cmds:
+      - go install golang.org/x/tools/cmd/godoc@latest
+      - cmd: 'powershell -Command "Start-Process http://localhost:6060"'
+        ignore_error: true
+      - godoc -http=:6060
+
+  docs:
+    desc: Generate Go documentation in HTML
+    cmds:
+      - echo "Generating documentation..."
+      - 'go doc -all ./p2t > docs/API.txt'
+      - echo "Documentation saved to docs/API.txt"
+
+  # ==================== Version & Info Tasks ====================
+
+  version:
+    desc: Display version information
+    cmds:
+      - echo "mypdf2txt Version Information"
+      - echo "Project{{.VERSION}}"
+      - go version
+      - echo "OS/Arch{{.GOOS}}/{{.GOARCH}}"
+
+  info:
+    desc: Display project information and requirements
+    cmds:
+      - echo "=== mypdf2txt - PDF Text Extraction with OCR ==="
+      - echo ""
+      - 'echo "Description:"'
+      - echo "  Extract text from PDF files, including scanned PDFs (with OCR)"
+      - echo "  Uses native Windows 11 APIs (Windows.Data.Pdf + Windows.Media.Ocr)"
+      - echo ""
+      - 'echo "Requirements:"'
+      - echo "  - Windows 10/11"
+      - echo "  - Go 1.20+"
+      - echo "  - .NET SDK 8.0 (auto-installed on first build)"
+      - echo ""
+      - 'echo "Quick Start:"'
+      - echo "  1. task build         # Build everything"
+      - echo "  2. task test          # Run tests"
+      - echo "  3. task run -- file.pdf  # Extract text from PDF"
+      - echo ""
+      - 'echo "Documentation:"'
+      - echo "  - README.md    - Overview"
+      - echo "  - INSTALL.md   - Installation guide"
+      - echo "  - SOLUTION.md  - Technical details"
+
+  # ==================== CI/CD Tasks ====================
+
+  ci:
+    desc: Run CI pipeline (format, vet, test)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: build
+      - task: test
+
+  install:
+    desc: Install dependencies and build everything
+    cmds:
+      - echo "Installing dependencies..."
+      - task: tidy
+      - task: build
+      - echo ""
+      - echo "Installation complete!"
+      - echo "Run 'task run -- <pdf-file>' to extract text from a PDF"
+
+  # ==================== Rebuild Tasks ====================
+
+  rebuild:
+    desc: Clean and rebuild everything
+    cmds:
+      - task: clean
+      - task: build
+      - echo "Rebuild complete!"
+
+  rebuild-extractor:
+    desc: Force rebuild of C# extractor
+    cmds:
+      - echo "Force rebuilding PdfTextExtractor..."
+      - cmd: powershell -Command "Remove-Item -Path bin/PdfTextExtractor.* -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - cmd: powershell -Command "Remove-Item -Path tools/PdfTextExtractor/bin -Recurse -Force -ErrorAction SilentlyContinue"
+        ignore_error: true
+      - task: build-extractor

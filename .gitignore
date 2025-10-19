@@ -31,3 +31,8 @@ go.work.sum
 # .idea/
 # .vscode/
 .claude
+
+# Build artifacts
+bin/
+tools/PdfTextExtractor/bin/
+tools/PdfTextExtractor/obj/
