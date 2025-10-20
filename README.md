@@ -1,5 +1,8 @@
 # mypdf2txt
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/xavier268/mypdf2txt.svg)](https://pkg.go.dev/github.com/xavier268/mypdf2txt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/xavier268/mypdf2txt)](https://goreportcard.com/report/github.com/xavier268/mypdf2txt)
+
 Bibliothèque Go pour extraire du texte de fichiers PDF, **y compris les PDF scannés** (avec OCR), en utilisant les API natives de Windows 11.
 
 ## Caractéristiques
