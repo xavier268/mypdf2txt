@@ -52,8 +52,52 @@ Go récupère le résultat
 
 ## Installation
 
+### 1. Installer le package Go
+
 ```bash
 go get github.com/xavier268/mypdf2txt
+```
+
+### 2. Installer l'exécutable PdfTextExtractor
+
+Le package nécessite l'exécutable PdfTextExtractor.exe pour fonctionner. Il existe deux méthodes d'installation:
+
+#### Méthode A: Installation automatique (recommandée pour les applications externes)
+
+Si vous utilisez ce package depuis une application externe, vous devez d'abord installer l'exécutable dans l'espace utilisateur:
+
+```bash
+# 1. Cloner temporairement le dépôt pour compiler l'exécutable
+git clone https://github.com/xavier268/mypdf2txt.git
+cd mypdf2txt
+
+# 2. Compiler l'extracteur C#
+powershell.exe -ExecutionPolicy Bypass -File tools/build.ps1
+
+# 3. Installer dans l'espace utilisateur (%LOCALAPPDATA%\mypdf2txt\bin\)
+go run ./cmd/install
+
+# 4. Vous pouvez maintenant supprimer le dépôt cloné
+cd ..
+rm -rf mypdf2txt
+```
+
+L'exécutable sera installé dans `%LOCALAPPDATA%\mypdf2txt\bin\PdfTextExtractor.exe` et sera accessible depuis n'importe quelle application Go.
+
+#### Méthode B: Installation locale (pour le développement)
+
+Si vous développez dans le dépôt mypdf2txt lui-même, il suffit de compiler l'extracteur:
+
+```bash
+powershell.exe -ExecutionPolicy Bypass -File tools/build.ps1
+```
+
+### 3. Configuration alternative avec variable d'environnement
+
+Vous pouvez également spécifier un emplacement personnalisé pour l'exécutable:
+
+```bash
+set MYPDF2TXT_EXTRACTOR_PATH=C:\chemin\vers\PdfTextExtractor.exe
 ```
 
 ## Utilisation
